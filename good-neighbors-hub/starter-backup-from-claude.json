@@ -1,0 +1,29 @@
+{
+ "app": "good-neighbors-hub-inventory",
+ "version": 1,
+ "exportedAt": "2026-10-27T20:00:00Z",
+ "data": {
+  "items": {
+   "mvq4na9vvt9nk": {
+    "createdAt": "2026-10-27T03:29:47.971Z",
+    "example": false,
+    "folderId": "",
+    "minQty": 0,
+    "name": "BIC Sensitive Disposable Razors for Men  1 Blade  12 Count",
+    "notes": "Brand: BIC\nModel: 070330708419\nSize: 12 Disposable Razors Per Packag \u00b7 0.00 lb\nProduct image: https://pics.walgreens.com/prodimg/374568/450.jpg",
+    "photoId": "",
+    "price": 0,
+    "qty": 1,
+    "sku": "070330708419",
+    "tags": [
+     "shaving & grooming"
+    ],
+    "unit": "ea",
+    "updatedAt": "2026-10-27T03:30:30.208Z"
+   }
+  },
+  "folders": {},
+  "activity": {}
+ },
+ "photos": {}
+}
