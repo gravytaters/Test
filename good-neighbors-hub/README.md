@@ -3,7 +3,15 @@
 Inventory for The Good Neighbors Hub, run on your own computer. Everything it needs is in this
 folder; your inventory is saved in the browser on this computer.
 
-## Start it
+## Use it on the web
+
+Open **https://gravytaters.github.io/Test/good-neighbors-hub/** in any browser, phones included.
+It works the same as the copy on your computer, live camera scanning too, and can be added to a
+phone's home screen (Safari: Share → Add to Home Screen; Chrome: ⋮ → Add to Home screen).
+Each device and browser keeps its own inventory, so use Back up and Restore to move it between
+them.
+
+## Start it on your computer
 
 1. Unzip the folder somewhere permanent, such as Documents. Don't run it from inside the zip.
 2. Double-click the start file for your computer:
