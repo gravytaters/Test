@@ -1,15 +1,23 @@
 # Good Neighbors Hub Inventory
 
-Inventory for The Good Neighbors Hub, run on your own computer. Everything it needs is in this
-folder; your inventory is saved in the browser on this computer.
+Inventory for The Good Neighbors Hub. Everyone with the Hub passcode shares one live inventory,
+on phones and computers alike; it's stored in the Hub's Supabase project ("Good Neighbors Hub
+Inventory" in the Mt. Hermon UMC organization).
 
 ## Use it on the web
 
 Open **https://gravytaters.github.io/Test/good-neighbors-hub/** in any browser, phones included.
-It works the same as the copy on your computer, live camera scanning too, and can be added to a
-phone's home screen (Safari: Share → Add to Home Screen; Chrome: ⋮ → Add to Home screen).
-Each device and browser keeps its own inventory, so use Back up and Restore to move it between
-them.
+The first time on each device, enter the Hub passcode (ask the Hub coordinator) and, if you like,
+your first name so the activity log shows who made each change. Add it to a phone's home screen
+for one-tap access (Safari: Share → Add to Home Screen; Chrome: ⋮ → Add to Home screen).
+
+Under **Shared inventory** on the left:
+- **Back up** saves a copy of the whole inventory, photos included. Do it now and then.
+- **Restore** replaces the shared inventory, for everyone, with a backup.
+- **Change passcode** sets a new Hub passcode. Every other device is asked for it next time.
+- **Lock this device** forgets the passcode on this device, for shared or public computers.
+
+Ten wrong passcode tries from one network blocks that network for 15 minutes.
 
 ## Start it on your computer
 
@@ -20,7 +28,8 @@ them.
    - **Windows:** `Start Hub Inventory (Windows).bat`. If Windows SmartScreen appears, choose
      **More info**, then **Run anyway**.
 3. Your browser opens to **http://localhost:8642**. Leave the small black window open while you
-   use the app; closing it stops the app.
+   use the app; closing it stops the app. It uses the same shared inventory as the web address,
+   so it needs an internet connection.
 
 The start files need Python, which most Macs have. On Windows, install it free from
 python.org (tick "Add python.exe to PATH" during setup). Without Python, the start file opens
@@ -36,14 +45,14 @@ the start file first whenever you use it.
 
 ## Your data
 
-- The inventory lives in **this browser on this computer**. Another computer, another browser,
-  or opening `index.html` directly instead of through the start file each starts empty.
-- Use **Back up** (left side, under Folders) regularly and keep the file somewhere safe, such as
-  Google Drive. **Restore** loads a backup and replaces what's in the browser.
-- Clearing your browser's history or site data for localhost **erases the inventory**. Back up
-  first.
-- To bring over what you entered on claude.ai, click **Restore** and choose
-  `starter-backup-from-claude.json` (made Oct 27, 2026; it has the BIC razors).
+- The inventory is stored once, in the Hub's Supabase database, and every device with the
+  passcode sees the same items. Changes show up on other open devices within a few seconds.
+- The database answers only requests that carry the current Hub passcode. The passcode isn't
+  stored anywhere in this repository, which is public.
+- Supabase's free plan pauses a project after a week with no activity. If the app says it can't
+  reach the inventory after a quiet spell, sign in to supabase.com and restore the project.
+- To run without the shared database, each browser keeping its own inventory, change `mode` in
+  `config.js` from `"shared"` to `"local"`.
 
 ## Scanning and lookups
 
@@ -58,7 +67,8 @@ the start file first whenever you use it.
 | File | What it is |
 | --- | --- |
 | `index.html` | The app |
-| `local-runtime.js` | Saves the inventory and photos in this browser |
+| `config.js` | Where the inventory lives: the shared Supabase project, or this browser only |
+| `shared-runtime.js` | Talks to the shared database: passcode screen, live updates, photos |
+| `local-runtime.js` | Used instead when `config.js` says `"local"` |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Offline use and installing as an app |
-| `vendor/` | Barcode reader (ZXing), QR labels, Excel reader (SheetJS) |
-| `starter-backup-from-claude.json` | The inventory from the claude.ai version |
+| `vendor/` | Supabase client, barcode reader (ZXing), QR labels, Excel reader (SheetJS) |

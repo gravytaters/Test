@@ -1,15 +1,18 @@
 /* Keeps the app working offline once it has been opened from http://localhost. */
-const CACHE = "gnh-inventory-v1";
+const CACHE = "gnh-inventory-v2";
 const FILES = [
  "./",
  "index.html",
+ "config.js",
  "local-runtime.js",
+ "shared-runtime.js",
  "manifest.webmanifest",
  "icons/apple-touch-icon.png",
  "icons/icon-192.png",
  "icons/icon-512.png",
  "icons/icon-maskable-512.png",
  "vendor/qrcode-generator-1.4.4.js",
+ "vendor/supabase-js-2.117.2.js",
  "vendor/xlsx-0.18.5.full.min.js",
  "vendor/zxing-0.21.3.min.js"
 ];

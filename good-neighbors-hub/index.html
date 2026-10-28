@@ -239,9 +239,10 @@ button.scan-cta{width:100%;font:inherit}
     <div class="rail-label">Folders <button type="button" id="addFolderBtn">+ New</button></div>
     <ul class="folders" id="folders"></ul>
     <div class="local-box" id="localBox" hidden>
-      <div class="rail-label">This computer</div>
+      <div class="rail-label" id="localTitle">This computer</div>
       <p id="localNote">The inventory is saved in this browser only. Back it up now and then and keep the file somewhere safe.</p>
-      <div class="local-actions"><button class="btn" type="button" id="backupBtn">Back up</button><label class="btn" for="restoreIn">Restore</label></div>
+      <div class="local-actions"><button class="btn" type="button" id="backupBtn">Back up</button><label class="btn" for="restoreIn">Restore</label>
+        <button class="btn" type="button" id="passBtn" hidden>Change passcode</button><button class="btn" type="button" id="lockBtn" hidden>Lock this device</button></div>
       <input id="restoreIn" type="file" accept=".json,application/json" hidden>
     </div>
   </aside>
@@ -277,7 +278,10 @@ button.scan-cta{width:100%;font:inherit}
 <div id="drawerRoot"></div>
 <div id="toastRoot"></div>
 
+<script src="config.js"></script>
+<script src="vendor/supabase-js-2.117.2.js"></script>
 <script src="local-runtime.js"></script>
+<script src="shared-runtime.js"></script>
 <script src="vendor/zxing-0.21.3.min.js"></script>
 <script src="vendor/qrcode-generator-1.4.4.js"></script>
 <script src="vendor/xlsx-0.18.5.full.min.js"></script>
@@ -947,7 +951,9 @@ button.scan-cta{width:100%;font:inherit}
   /* ---------- backup and restore (local version) ---------- */
   function showLastBackup(){
     let at = null; try { at = localStorage.getItem("gnh.lastBackup"); } catch {}
-    const n = $("#localNote"); if (n && at) n.textContent = `The inventory is saved in this browser only. Last backup: ${new Date(at).toLocaleDateString()}.`;
+    const shared = window.gnhLocal?.shared, n = $("#localNote"); if (!n) return;
+    n.textContent = (shared ? "Shared with everyone who has the Hub passcode." : "The inventory is saved in this browser only.") +
+      (at ? ` Last backup from this device: ${new Date(at).toLocaleDateString()}.` : " Back it up now and then and keep the file somewhere safe.");
   }
   async function backup(){
     try {
@@ -960,9 +966,31 @@ button.scan-cta{width:100%;font:inherit}
   async function restore(file){
     let b; try { b = JSON.parse(await file.text()); } catch { toast("That file isn't a Good Neighbors Hub backup."); return; }
     const n = Object.keys(b?.data?.items || {}).length;
-    if (!confirm(`Replace everything in this browser with the backup from ${new Date(b.exportedAt).toLocaleString()}? It has ${n} items.`)) return;
+    const where = window.gnhLocal?.shared ? "the shared inventory, for everyone," : "everything in this browser";
+    if (!confirm(`Replace ${where} with the backup from ${new Date(b.exportedAt).toLocaleString()}? It has ${n} items.`)) return;
     try { await window.gnhLocal.importAll(b); S.folder = "all"; toast(`Restored ${n} items`); }
     catch (e) { toast(e?.message || "Couldn't restore that file."); }
+  }
+
+  function openPasscode(){
+    S.open = { type: "passcode" };
+    $("#drawerRoot").innerHTML = `<div class="scrim" data-close></div><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitle"><form id="dForm" style="display:contents">
+      <div class="drawer-head"><h2 id="dTitle">Change the Hub passcode</h2><button class="btn ghost" type="button" data-close aria-label="Close">✕</button></div>
+      <div class="drawer-body">
+        <p style="margin:0">Everyone else will be asked for the new passcode the next time their device opens the inventory. Use at least 6 characters.</p>
+        <div class="field"><label for="newPass">New passcode</label><input id="newPass" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" minlength="6" maxlength="64" class="mono"></div>
+        <div class="field"><label for="newPass2">Type it again</label><input id="newPass2" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" class="mono"></div>
+      </div>
+      <div class="drawer-foot"><span class="spacer"></span><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="submit">Change passcode</button></div>
+    </form></aside>`;
+    $("#newPass").focus();
+  }
+  async function savePasscode(){
+    const a = $("#newPass").value.trim(), b = $("#newPass2").value.trim();
+    if (a.length < 6) { toast("Use at least 6 characters."); return; }
+    if (a !== b) { toast("The two passcodes don't match."); return; }
+    try { await window.gnhLocal.setPasscode(a); closeDrawer(); toast("Passcode changed. Share the new one with your volunteers."); }
+    catch (e) { toast(e?.code === "unavailable" ? "Can't reach the inventory. Check your internet connection." : "Couldn't change the passcode."); }
   }
 
   /* ---------- drawer ---------- */
@@ -1064,6 +1092,8 @@ button.scan-cta{width:100%;font:inherit}
     switch (t.id) {
       case "importBtn": return openImport();
       case "backupBtn": return backup();
+      case "passBtn": return openPasscode();
+      case "lockBtn": return window.gnhLocal.lock();
       case "liveStart": return startLive();
       case "impTemplate": return saveTemplate();
       case "impBack": S.imp = { step: "pick" }; return renderImport();
@@ -1088,7 +1118,7 @@ button.scan-cta{width:100%;font:inherit}
   document.addEventListener("dblclick", e => { const f = e.target.closest("[data-folder]"); if (f && f.dataset.folder!=="all") openFolder(f.dataset.folder); });
   document.addEventListener("contextmenu", e => { const f = e.target.closest("[data-folder]"); if (f && f.dataset.folder!=="all") { e.preventDefault(); openFolder(f.dataset.folder); } });
   document.addEventListener("submit", e => { e.preventDefault();
-    if (S.open?.type==="import") runImport(); else if (S.open?.type==="folder") saveFolder(e.target); else if (S.open?.type==="scan") lookupCode($("#codeIn").value); else saveItem(e.target); });
+    if (S.open?.type==="passcode") savePasscode(); else if (S.open?.type==="import") runImport(); else if (S.open?.type==="folder") saveFolder(e.target); else if (S.open?.type==="scan") lookupCode($("#codeIn").value); else saveItem(e.target); });
   document.addEventListener("change", e => {
     if (e.target.id==="photoIn" && e.target.files[0]) uploadPhoto(e.target.files[0]);
     if (e.target.id==="scanIn" && e.target.files[0]) decodeFile(e.target.files[0]);
@@ -1110,6 +1140,10 @@ button.scan-cta{width:100%;font:inherit}
     S.liveOk = S.local && window.isSecureContext !== false && !!navigator.mediaDevices?.getUserMedia;
     if (S.local) {
       $("#localBox").hidden = false; showLastBackup();
+      if (window.gnhLocal?.shared) {
+        $("#localTitle").textContent = "Shared inventory"; $("#passBtn").hidden = false; $("#lockBtn").hidden = false;
+        window.addEventListener("gnh-photo", () => render()); // a photo finished loading
+      }
       window.addEventListener("gnh-storage-error", () => toast("This browser is out of storage space. Back up, then remove some photos."));
     }
     if (downloads) $("#exportBtn").hidden = false;

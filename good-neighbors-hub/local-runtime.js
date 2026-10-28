@@ -3,6 +3,7 @@
    (window.claude.use). Here this file provides the same calls, keeping everything in this
    browser: records in localStorage, photos in IndexedDB. */
 (() => {
+  if ((window.GNH_CONFIG || {}).mode === "shared") return; // shared-runtime.js takes over
   const KEY = "gnh-inventory-v1";
   const clone = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
   let data = load();
