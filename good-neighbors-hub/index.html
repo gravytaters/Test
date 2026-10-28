@@ -128,7 +128,7 @@ select.sort{border:1px solid var(--line);background:var(--surface);border-radius
 .stepper button{border:0;background:var(--surface-2);width:30px;height:30px;font-size:16px;line-height:1}
 .stepper button:hover{background:var(--accent-soft);color:var(--accent)}
 .stepper .q{min-width:52px;text-align:center;font:500 14px/30px var(--f-mono);padding:0 6px;font-variant-numeric:tabular-nums}
-.price{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.min-tag{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
 .tag{display:inline-block;font-size:11px;padding:2px 6px;border-radius:4px;background:var(--surface-2);color:var(--muted)}
 
 .list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow-x:auto}
@@ -252,7 +252,7 @@ button.scan-cta{width:100%;font:inherit}
     <section class="stats" aria-label="Summary">
       <div class="stat"><span class="k">Items</span><span class="v" id="sItems">0</span></div>
       <div class="stat"><span class="k">Total units</span><span class="v" id="sUnits">0</span></div>
-      <div class="stat"><span class="k">Stock value</span><span class="v" id="sValue">$0</span></div>
+      <div class="stat alert"><span class="k">Out of stock</span><span class="v" id="sOut">0</span></div>
       <div class="stat alert"><button type="button" id="lowJump"><span class="k">Below min level</span><br><span class="v" id="sLow">0</span></button></div>
     </section>
     <div class="toolbar">
@@ -265,7 +265,6 @@ button.scan-cta{width:100%;font:inherit}
       <select class="sort" id="sort" aria-label="Sort items">
         <option value="name">Name A–Z</option>
         <option value="qty">Quantity, low first</option>
-        <option value="value">Value, high first</option>
         <option value="updated">Recently updated</option>
       </select>
     </div>
@@ -289,7 +288,6 @@ button.scan-cta{width:100%;font:inherit}
 (() => {
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const money = n => "$" + (Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2});
   const num = n => (Number(n)||0).toLocaleString();
   const ago = iso => { if(!iso) return ""; const s=(Date.now()-new Date(iso))/1000;
     if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago";
@@ -299,7 +297,7 @@ button.scan-cta{width:100%;font:inherit}
   const S = { db:null, user:null, assets:null, downloads:null, me:null,
     folders:[], items:[], activity:[], loaded:{f:false,i:false,a:false},
     folder:"all", view:"grid", sort:"name", q:"", lowOnly:false, open:null, profiles:{} };
-  try { const v = localStorage.getItem("stk.view"); if (v) S.view = v; const so = localStorage.getItem("stk.sort"); if (so) S.sort = so; } catch {}
+  try { const v = localStorage.getItem("stk.view"); if (v) S.view = v; const so = localStorage.getItem("stk.sort"); if (so && so !== "value") S.sort = so; } catch {}
 
   const toast = msg => { const r=$("#toastRoot"); r.innerHTML=`<div class="toast" role="status">${esc(msg)}</div>`; clearTimeout(toast.t); toast.t=setTimeout(()=>r.innerHTML="",2400); };
   const isLow = it => Number(it.minQty)>0 && Number(it.qty) <= Number(it.minQty);
@@ -315,7 +313,7 @@ button.scan-cta{width:100%;font:inherit}
     if (S.lowOnly) list = list.filter(isLow);
     if (S.q) { const q=S.q.toLowerCase(); list = list.filter(i => [i.name,i.sku,i.notes,(i.tags||[]).join(" "),folderName(i.folderId)].join(" ").toLowerCase().includes(q)); }
     const by = { name:(a,b)=>a.name.localeCompare(b.name), qty:(a,b)=>a.qty-b.qty,
-      value:(a,b)=>b.qty*b.price-a.qty*a.price, updated:(a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)) }[S.sort];
+      updated:(a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)) }[S.sort];
     return [...list].sort(by);
   }
 
@@ -335,7 +333,7 @@ button.scan-cta{width:100%;font:inherit}
     const scope = S.folder==="all" ? S.items : S.items.filter(i => childIds(S.folder).includes(i.folderId));
     $("#sItems").textContent = num(scope.length);
     $("#sUnits").textContent = num(scope.reduce((s,i)=>s+Number(i.qty||0),0));
-    $("#sValue").textContent = money(scope.reduce((s,i)=>s+Number(i.qty||0)*Number(i.price||0),0));
+    $("#sOut").textContent = num(scope.filter(i => Number(i.qty) === 0).length);
     $("#sLow").textContent = num(scope.filter(isLow).length);
   }
 
@@ -359,7 +357,7 @@ button.scan-cta{width:100%;font:inherit}
         ${(it.tags||[]).length?`<div class="meta">${it.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>`:""}
         <div class="foot">
           <div class="stepper"><button type="button" data-step="-1" data-id="${esc(it.id)}" aria-label="Remove one">−</button><span class="q">${num(it.qty)}<small> ${esc(it.unit||"")}</small></span><button type="button" data-step="1" data-id="${esc(it.id)}" aria-label="Add one">+</button></div>
-          <span class="price">${it.price?money(it.price)+"/"+esc(it.unit||"ea"):""}</span>
+          ${it.minQty ? `<span class="min-tag">min ${num(it.minQty)}</span>` : ""}
         </div>
       </div></article>`;
   }
@@ -397,11 +395,10 @@ button.scan-cta{width:100%;font:inherit}
       return;
     }
     if (S.view === "table") {
-      c.innerHTML = `<div class="list"><table><thead><tr><th>Item</th><th>SKU</th><th>Folder</th><th class="num">Qty</th><th class="num">Min</th><th class="num">Unit price</th><th class="num">Value</th><th>Status</th></tr></thead><tbody>${
+      c.innerHTML = `<div class="list"><table><thead><tr><th>Item</th><th>SKU</th><th>Folder</th><th class="num">Qty</th><th class="num">Min</th><th>Status</th></tr></thead><tbody>${
         list.map(it => `<tr><td><button class="linkish" type="button" data-open="${esc(it.id)}">${esc(it.name)}</button>${it.example?` <span class="tag">Example</span>`:""}</td>
           <td class="mono">${esc(it.sku||"")}</td><td>${esc(folderName(it.folderId))}</td>
           <td class="num">${num(it.qty)} ${esc(it.unit||"")}</td><td class="num">${it.minQty?num(it.minQty):"—"}</td>
-          <td class="num">${it.price?money(it.price):"—"}</td><td class="num">${money(it.qty*(it.price||0))}</td>
           <td>${isLow(it)?`<span class="pill low">${Number(it.qty)===0?"Out":"Low"}</span>`:`<span class="pill ok">OK</span>`}</td></tr>`).join("")}</tbody></table></div>`;
     } else {
       c.innerHTML = `<div class="grid">${list.map(card).join("")}</div>`;
@@ -446,7 +443,6 @@ button.scan-cta{width:100%;font:inherit}
       name: String(fd.get("name")).trim(), folderId: fd.get("folderId") || "",
       sku: String(fd.get("sku")||"").trim(), unit: String(fd.get("unit")||"ea").trim() || "ea",
       qty: Math.max(0, Number(fd.get("qty"))||0), minQty: Math.max(0, Number(fd.get("minQty"))||0),
-      price: Math.max(0, Number(fd.get("price"))||0),
       tags: String(fd.get("tags")||"").split(",").map(t=>t.trim()).filter(Boolean).slice(0,12),
       notes: String(fd.get("notes")||"").slice(0,4000), photoId: S.open.photoId || "", updatedAt: now() };
     if (!data.name) { toast("Give the item a name."); return; }
@@ -512,9 +508,9 @@ button.scan-cta{width:100%;font:inherit}
   }
 
   async function exportCsv(){
-    const cols = ["Name","SKU","Folder","Quantity","Unit","Min level","Unit price","Total value","Tags","Notes","Updated"];
+    const cols = ["Name","SKU","Folder","Quantity","Unit","Min level","Tags","Notes","Updated"];
     const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
-    const rows = visibleItems().map(i => [i.name,i.sku,folderName(i.folderId),i.qty,i.unit,i.minQty,i.price,(i.qty*(i.price||0)).toFixed(2),(i.tags||[]).join("; "),i.notes,i.updatedAt].map(q).join(","));
+    const rows = visibleItems().map(i => [i.name,i.sku,folderName(i.folderId),i.qty,i.unit,i.minQty,(i.tags||[]).join("; "),i.notes,i.updatedAt].map(q).join(","));
     try { await S.downloads.save({ filename: `good-neighbors-hub-inventory-${new Date().toISOString().slice(0,10)}.csv`, data: [cols.map(q).join(","), ...rows].join("\n") }); toast("CSV saved"); }
     catch(e) { if (e?.code !== "declined") toast("Couldn't export the file."); }
   }
@@ -608,10 +604,9 @@ button.scan-cta{width:100%;font:inherit}
   async function fromUpcItemDb(code){
     const r = await getJson("https://api.upcitemdb.com/prod/trial/lookup", { upc: code });
     const it = r?.items?.[0]; if (!it?.title) return null;
-    const lo = Number(it.lowest_recorded_price) || 0, hi = Number(it.highest_recorded_price) || 0;
     return { source: "UPCitemdb", title: it.title, brand: String(it.brand||"").replace(/\?/g, ""), model: it.model || "",
       category: it.category || "", size: [it.size, it.dimension, it.weight].filter(Boolean).join(" · "),
-      price: lo && hi ? (lo === hi ? money(lo) : `${money(lo)}–${money(hi)}`) : "", image: it.images?.[0] || "" };
+      image: it.images?.[0] || "" };
   }
   async function fromOpenFoodFacts(code){
     const ean = code.length === 12 ? "0" + code : code;
@@ -619,7 +614,7 @@ button.scan-cta{width:100%;font:inherit}
     const p = r?.product; if (r?.status !== 1 || !p?.product_name) return null;
     return { source: "Open Food Facts", title: p.product_name, brand: p.brands || "", model: "",
       category: String(p.categories||"").split(",").map(s=>s.trim()).filter(s=>!/^\w\w:/.test(s)).slice(-1)[0] || "",
-      size: p.quantity || "", price: "", image: p.image_front_small_url || "" };
+      size: p.quantity || "", image: p.image_front_small_url || "" };
   }
   function lookupErrorText(e){
     switch (e?.code) {
@@ -653,7 +648,7 @@ button.scan-cta{width:100%;font:inherit}
           <strong style="font-size:15px">${esc(prod.title)}</strong>
           <span style="color:var(--muted)">${esc([prod.brand, prod.model].filter(Boolean).join(" · "))}</span>
           ${prod.category?`<span style="font-size:12px;color:var(--muted)">${esc(prod.category)}</span>`:""}
-          ${prod.size||prod.price?`<span class="mono" style="font-size:12px">${esc([prod.size, prod.price && "Seen at " + prod.price].filter(Boolean).join(" · "))}</span>`:""}
+          ${prod.size?`<span class="mono" style="font-size:12px">${esc(prod.size)}</span>`:""}
           <span style="font-size:11px;color:var(--muted)">Found on ${esc(prod.source)} · code <span class="mono">${esc(code)}</span></span></div>
         <button class="btn primary" type="button" id="addFound">Add to inventory</button>`);
       return;
@@ -666,7 +661,7 @@ button.scan-cta{width:100%;font:inherit}
   function addFound(){
     const p = S.found; if (!p) return;
     const cat = String(p.category||"").split(">").map(s=>s.trim()).filter(Boolean).pop();
-    const notes = [p.brand && "Brand: " + p.brand, p.model && "Model: " + p.model, p.size && "Size: " + p.size, p.price && "Seen online at " + p.price,
+    const notes = [p.brand && "Brand: " + p.brand, p.model && "Model: " + p.model, p.size && "Size: " + p.size,
       p.image && "Product image: " + p.image].filter(Boolean).join("\n");
     openItem(null, { name: p.title, sku: p.code, tags: cat ? [cat.toLowerCase()] : [], notes });
   }
@@ -772,7 +767,6 @@ button.scan-cta{width:100%;font:inherit}
     ["qty", "Quantity", ["quantity","qty","count","onhand","qtyonhand","stock","instock","quantityonhand","amount"]],
     ["unit", "Unit", ["unit","units","uom","unitofmeasure","unitofmeasurement"]],
     ["minQty", "Min level", ["minlevel","min","minimum","minqty","minquantity","reorderpoint","reorderlevel","parlevel","par"]],
-    ["price", "Unit price", ["price","unitprice","cost","unitcost","priceeach","costeach"]],
     ["folder", "Folder", ["folder","primaryfolder","location","room","warehouse","bin","shelf","area"]],
     ["subfolder", "Subfolder", ["subfolder","subfolderlevel1","sublocation","subfolder1"]],
     ["tags", "Tags", ["tags","tag","labels","category","categories"]],
@@ -844,7 +838,7 @@ button.scan-cta{width:100%;font:inherit}
     let folder = cellStr(g("folder")), sub = cellStr(g("subfolder"));
     if (!sub && /\s[\/>]\s|[>]/.test(folder)) { const parts = folder.split(/\s*[\/>]\s*/).filter(Boolean); folder = parts[0] || ""; sub = parts[1] || ""; }
     return { name: cellStr(g("name")).slice(0, 120), sku: cellStr(g("sku")).slice(0, 60), qty: Math.max(0, toNum(g("qty"))),
-      unit: cellStr(g("unit")).slice(0, 12) || "ea", minQty: Math.max(0, toNum(g("minQty"))), price: Math.max(0, toNum(g("price"))),
+      unit: cellStr(g("unit")).slice(0, 12) || "ea", minQty: Math.max(0, toNum(g("minQty"))),
       folder, sub, tags: cellStr(g("tags")).split(/[,;|]/).map(t => t.trim()).filter(Boolean).slice(0, 12), notes: cellStr(g("notes")).slice(0, 4000) };
   }
   function findExisting(d, folderId){
@@ -864,7 +858,9 @@ button.scan-cta{width:100%;font:inherit}
     const findOrMake = async (name, parentId) => {
       const key = parentId + "\u0000" + name.toLowerCase(); if (folderIdFor[key]) return folderIdFor[key];
       let f = S.folders.find(x => x.name.toLowerCase() === name.toLowerCase() && (x.parentId || "") === parentId);
-      if (!f) { f = { id: uid(), name: name.slice(0, 80), parentId }; await S.db.doc("folders/" + f.id).set({ name: f.name, parentId, createdAt: now(), example: false }); S.folders.push(f); imp.res.folders++; }
+      if (!f) { f = { id: uid(), name: name.slice(0, 80), parentId }; await S.db.doc("folders/" + f.id).set({ name: f.name, parentId, createdAt: now(), example: false });
+        if (!S.folders.some(x => x.id === f.id)) S.folders.push(f); // a live update may have listed it already
+        imp.res.folders++; }
       return folderIdFor[key] = f.id;
     };
     const stamp = now();
@@ -873,7 +869,7 @@ button.scan-cta{width:100%;font:inherit}
         if (!d.name) { imp.res.blank++; continue; }
         let folderId = "";
         if (d.folder) { folderId = await findOrMake(d.folder, ""); if (d.sub) folderId = await findOrMake(d.sub, folderId); }
-        const data = { name: d.name, folderId, sku: d.sku, unit: d.unit, qty: d.qty, minQty: d.minQty, price: d.price, tags: d.tags, notes: d.notes, updatedAt: stamp };
+        const data = { name: d.name, folderId, sku: d.sku, unit: d.unit, qty: d.qty, minQty: d.minQty, tags: d.tags, notes: d.notes, updatedAt: stamp };
         const ex = findExisting(d, folderId);
         if (ex && imp.mode === "skip") { imp.res.skipped++; }
         else if (ex) {
@@ -883,7 +879,7 @@ button.scan-cta{width:100%;font:inherit}
           await S.db.doc("items/" + ex.id).update(upd); Object.assign(ex, upd); imp.res.updated++;
         } else {
           const id = uid(); await S.db.doc("items/" + id).set({ ...data, photoId: "", example: false, createdAt: stamp }); imp.res.added++;
-          S.items.push({ id, ...data });
+          if (!S.items.some(x => x.id === id)) S.items.push({ id, ...data });
         }
       } catch (e) { console.error(e); imp.res.failed++; if (e?.code === "not_granted") { imp.res.denied = true; break; } }
       imp.done++;
@@ -895,9 +891,9 @@ button.scan-cta{width:100%;font:inherit}
   }
 
   async function saveTemplate(){
-    const csv = "Name,SKU / barcode,Quantity,Unit,Min level,Unit price,Folder,Subfolder,Tags,Notes\n" +
-      "Toothpaste (large tube),,14,ea,5,,Hygiene,Dental,toiletries,\n" +
-      "Liquid laundry detergent,,3,bottle,2,,Cleaning,Laundry,\"cleaning, laundry\",Donated\n";
+    const csv = "Name,SKU / barcode,Quantity,Unit,Min level,Folder,Subfolder,Tags,Notes\n" +
+      "Toothpaste (large tube),,14,ea,5,Hygiene,Dental,toiletries,\n" +
+      "Liquid laundry detergent,,3,bottle,2,Cleaning,Laundry,\"cleaning, laundry\",Donated\n";
     try { await S.downloads.save({ filename: "good-neighbors-hub-import-template.csv", data: csv }); toast("Template saved"); }
     catch (e) { if (e?.code !== "declined") toast("Couldn't save the template."); }
   }
@@ -912,13 +908,13 @@ button.scan-cta{width:100%;font:inherit}
           <span>Excel (.xlsx, .xls) or CSV. Put column names in the first row and one item per row. Exports from Sortly work as they are.</span></label>
         <input id="impIn" type="file" accept=".xlsx,.xls,.xlsm,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden>
         ${imp.error ? `<div class="scan-msg bad"><p>${esc(imp.error)}</p></div>` : ""}
-        <p style="margin:0;color:var(--muted);font-size:13px">Recognized columns: name, SKU or barcode, quantity, unit, min level, price, folder, subfolder, tags and notes. You can match them by hand on the next step.</p>
+        <p style="margin:0;color:var(--muted);font-size:13px">Recognized columns: name, SKU or barcode, quantity, unit, min level, folder, subfolder, tags and notes. Price columns are left out. You can match them by hand on the next step.</p>
         ${S.downloads ? `<div><button class="btn" type="button" id="impTemplate">Save a blank template (.csv)</button></div>` : ""}`;
     } else if (imp.step === "map") {
       const opts = sel => `<option value="">Don't import</option>` + imp.headers.map((h, i) => `<option value="${i}"${String(sel) === String(i) ? " selected" : ""}>${esc(h || "Column " + (i + 1))}</option>`).join("");
       const prev = imp.body.slice(0, 5).map(r => rowToItem(r, imp.map));
       const cols = IMPORT_FIELDS.filter(([k]) => imp.map[k] != null && imp.map[k] !== "" && k !== "subfolder");
-      const show = (d, k) => k === "folder" ? [d.folder, d.sub].filter(Boolean).join(" › ") : k === "tags" ? d.tags.join(", ") : k === "price" ? (d.price ? money(d.price) : "") : d[k];
+      const show = (d, k) => k === "folder" ? [d.folder, d.sub].filter(Boolean).join(" › ") : k === "tags" ? d.tags.join(", ") : d[k];
       const matches = imp.body.map(r => rowToItem(r, imp.map)).filter(d => d.name && findExisting(d, "") ).length;
       body = `<p style="margin:0"><strong>${esc(imp.file)}</strong>${imp.sheet ? ` · sheet “${esc(imp.sheet)}”` : ""} · ${num(imp.body.length)} rows</p>
         <div class="field"><label>Match columns</label><div class="map-grid">${IMPORT_FIELDS.map(([k, label]) =>
@@ -1034,7 +1030,7 @@ button.scan-cta{width:100%;font:inherit}
       return;
     }
 
-    const it = S.items.find(i=>i.id===o.id) || {name:"", folderId: S.folder==="all"?"":S.folder, qty:1, unit:"ea", minQty:0, price:0, sku:"", tags:[], notes:"", ...(o.prefill||{})};
+    const it = S.items.find(i=>i.id===o.id) || {name:"", folderId: S.folder==="all"?"":S.folder, qty:1, unit:"ea", minQty:0, sku:"", tags:[], notes:"", ...(o.prefill||{})};
     const purl = assetUrl(o.photoId);
     root.innerHTML = `<div class="scrim" data-close></div><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitle"><form id="dForm" style="display:contents">
       <div class="drawer-head"><h2 id="dTitle">${o.id?esc(it.name):"New item"}</h2><button class="btn ghost" type="button" data-close aria-label="Close">✕</button></div>
@@ -1059,10 +1055,7 @@ button.scan-cta{width:100%;font:inherit}
           <div class="field"><label for="iMin">Min level</label><input id="iMin" name="minQty" type="number" min="0" step="any" inputmode="decimal" value="${esc(it.minQty||0)}"></div>
         </div>
         <datalist id="units"><option value="ea"><option value="box"><option value="pk"><option value="case"><option value="ft"><option value="m"><option value="kg"><option value="lb"><option value="L"><option value="roll"></datalist>
-        <div class="row2">
-          <div class="field"><label for="iPrice">Unit price ($)</label><input id="iPrice" name="price" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(it.price||"")}"></div>
-          <div class="field"><label for="iTags">Tags (comma separated)</label><input id="iTags" name="tags" maxlength="200" value="${esc((it.tags||[]).join(", "))}" placeholder="toiletries, donated"></div>
-        </div>
+        <div class="field"><label for="iTags">Tags (comma separated)</label><input id="iTags" name="tags" maxlength="200" value="${esc((it.tags||[]).join(", "))}" placeholder="toiletries, donated"></div>
         <div class="field"><label for="iNotes">Notes</label><textarea id="iNotes" name="notes" maxlength="4000" placeholder="Donor, condition, where it is stored…">${esc(it.notes)}</textarea></div>
         ${o.id?`<div class="field"><label>QR label</label><div class="label-box"><canvas id="labelCv" width="640" height="280" role="img" aria-label="QR label for ${esc(it.name)}"></canvas>
           <div class="label-actions"><span>Scanning this label opens the item.</span>${S.downloads?`<button class="btn" type="button" id="saveLabel">Save label image</button>`:""}</div></div></div>`:""}
@@ -1151,7 +1144,7 @@ button.scan-cta{width:100%;font:inherit}
     if (!db) { S.loaded.none = true; S.loaded.i = true; return render(); }
     const norm = d => ({ id: d.id, ...d.data() });
     db.collection("folders").onSnapshot(s => { S.folders = s.docs.map(norm); if (S.folder!=="all" && !S.folders.some(f=>f.id===S.folder)) S.folder="all"; S.loaded.f = true; render(); }, err => console.error(err));
-    db.collection("items").onSnapshot(s => { S.items = s.docs.map(d => { const x = norm(d); x.qty = Number(x.qty)||0; x.price = Number(x.price)||0; x.minQty = Number(x.minQty)||0; return x; }); S.loaded.i = true; render(); }, err => { console.error(err); S.loaded.i = true; render(); });
+    db.collection("items").onSnapshot(s => { S.items = s.docs.map(d => { const x = norm(d); x.qty = Number(x.qty)||0; x.minQty = Number(x.minQty)||0; return x; }); S.loaded.i = true; render(); }, err => { console.error(err); S.loaded.i = true; render(); });
     db.collection("activity").orderBy("at","desc").limit(500).onSnapshot(s => { S.activity = s.docs.map(norm); S.loaded.a = true; if (S.view==="activity") renderContent(); if (S.open) renderDrawer(); }, err => console.error(err));
   })();
 })();
